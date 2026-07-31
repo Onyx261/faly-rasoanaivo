@@ -1492,7 +1492,10 @@ const observer = new IntersectionObserver((entries) => {
 
 document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
-/* ── AVIS LECTEURS ── */
+/* ── AVIS LECTEURS — Supabase ── */
+const SUPA_URL = 'https://yaipniawnfyoehzkzxbp.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlhaXBuaWF3bmZ5b2Voemt6eGJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0ODQ4ODksImV4cCI6MjEwMTA2MDg4OX0.ogDVNxStXh_LOFE63pnxyBBqJcHUofAfkvsr0EQPjnA';
+
 let selectedStars = 0;
 
 document.querySelectorAll('.reader-star-btn').forEach(btn => {
@@ -1515,49 +1518,83 @@ document.querySelectorAll('.reader-star-btn').forEach(btn => {
   });
 });
 
-function loadReviews() {
+function renderReviews(reviews) {
   const list = document.getElementById('reviewsList');
-  const reviews = JSON.parse(localStorage.getItem('book_reviews') || '[]');
   if (!reviews.length) {
     list.innerHTML = '<div class="reader-empty">Soyez le premier à laisser un avis.</div>';
     return;
   }
-  list.innerHTML = reviews.slice().reverse().map(r => `
+  list.innerHTML = reviews.map(r => `
     <div class="reader-review-card">
-      <div class="reader-review-stars">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</div>
-      <p class="reader-review-text">"${r.text}"</p>
+      <div class="reader-review-stars">${'★'.repeat(r.note)}${('☆'.repeat(5-r.note))}</div>
+      <p class="reader-review-text">"${r.texte}"</p>
       <div class="reader-review-meta">
-        <span>${r.name}</span>
-        <span>${r.location} · ${r.date}</span>
+        <span>${r.nom}</span>
+        <span>${r.lieu || ''}${r.lieu ? ' · ' : ''}${r.date}</span>
       </div>
     </div>
   `).join('');
 }
 
-function submitReview() {
-  const name     = document.getElementById('rv-name').value.trim();
-  const location = document.getElementById('rv-location').value.trim();
-  const text     = document.getElementById('rv-text').value.trim();
-  if (!name || !text || !selectedStars) {
+async function loadReviews() {
+  try {
+    const res = await fetch(`${SUPA_URL}/rest/v1/avis?select=*&order=id.desc`, {
+      headers: {
+        'apikey': SUPA_KEY,
+        'Authorization': 'Bearer ' + SUPA_KEY
+      }
+    });
+    const data = await res.json();
+    renderReviews(Array.isArray(data) ? data : []);
+  } catch(e) {
+    console.error('Erreur chargement avis:', e);
+    renderReviews([]);
+  }
+}
+
+async function submitReview() {
+  const nom   = document.getElementById('rv-name').value.trim();
+  const lieu  = document.getElementById('rv-location').value.trim();
+  const texte = document.getElementById('rv-text').value.trim();
+  if (!nom || !texte || !selectedStars) {
     alert('Merci de renseigner votre prénom, une note et un avis.');
     return;
   }
-  const reviews = JSON.parse(localStorage.getItem('book_reviews') || '[]');
   const now = new Date();
-  reviews.push({
-    name, location: location || 'Anonyme',
-    text, stars: selectedStars,
-    date: now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
-  });
-  localStorage.setItem('book_reviews', JSON.stringify(reviews));
-  document.getElementById('rv-name').value = '';
-  document.getElementById('rv-location').value = '';
-  document.getElementById('rv-text').value = '';
-  selectedStars = 0;
-  document.querySelectorAll('.reader-star-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('rv-success').classList.add('show');
-  setTimeout(() => document.getElementById('rv-success').classList.remove('show'), 3000);
-  loadReviews();
+  const date = now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  const btn = document.querySelector('.reader-form-submit');
+  btn.textContent = 'Publication...';
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${SUPA_URL}/rest/v1/avis`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPA_KEY,
+        'Authorization': 'Bearer ' + SUPA_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ nom, lieu: lieu || 'Anonyme', texte, note: selectedStars, date })
+    });
+    if (res.ok) {
+      document.getElementById('rv-name').value = '';
+      document.getElementById('rv-location').value = '';
+      document.getElementById('rv-text').value = '';
+      selectedStars = 0;
+      document.querySelectorAll('.reader-star-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('rv-success').classList.add('show');
+      setTimeout(() => document.getElementById('rv-success').classList.remove('show'), 3000);
+      loadReviews();
+    } else {
+      const err = await res.json();
+      console.error('Erreur Supabase:', err);
+      alert('Une erreur est survenue. Réessayez.');
+    }
+  } catch(e) {
+    alert('Erreur de connexion. Vérifiez votre connexion internet.');
+  }
+  btn.textContent = 'Publier mon avis →';
+  btn.disabled = false;
 }
 
 loadReviews();
