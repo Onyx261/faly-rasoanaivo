@@ -1393,12 +1393,20 @@ footer {
     <div class="reader-form-title">Vous avez lu le livre ? Partagez votre ressenti.</div>
     <div class="reader-form-grid">
       <div class="reader-form-group">
-        <label>Votre prénom</label>
-        <input type="text" id="rv-name" placeholder="Marie, Thomas…" maxlength="40">
+        <label>Initiale du prénom</label>
+        <input type="text" id="rv-initial" placeholder="Ex : M." maxlength="5">
       </div>
       <div class="reader-form-group">
-        <label>Ville / pays</label>
-        <input type="text" id="rv-location" placeholder="Paris, Madagascar…" maxlength="40">
+        <label>Nom de famille</label>
+        <input type="text" id="rv-lastname" placeholder="Ex : Dupont" maxlength="40">
+      </div>
+      <div class="reader-form-group">
+        <label>Pays</label>
+        <input type="text" id="rv-location" placeholder="Ex : France, Madagascar…" maxlength="40">
+      </div>
+      <div class="reader-form-group" style="display:flex;align-items:center;gap:10px;padding-top:22px">
+        <input type="checkbox" id="rv-anon" style="width:16px;height:16px;cursor:pointer;accent-color:var(--marine)">
+        <label for="rv-anon" style="letter-spacing:0;text-transform:none;font-size:13px;cursor:pointer;color:var(--gris)">Publier anonymement (pays uniquement)</label>
       </div>
       <div class="reader-form-group full">
         <label>Note</label>
@@ -1553,13 +1561,27 @@ async function loadReviews() {
 }
 
 async function submitReview() {
-  const nom   = document.getElementById('rv-name').value.trim();
-  const lieu  = document.getElementById('rv-location').value.trim();
-  const texte = document.getElementById('rv-text').value.trim();
-  if (!nom || !texte || !selectedStars) {
-    alert('Merci de renseigner votre prénom, une note et un avis.');
+  const initial  = document.getElementById('rv-initial').value.trim();
+  const lastname = document.getElementById('rv-lastname').value.trim();
+  const pays     = document.getElementById('rv-location').value.trim();
+  const anon     = document.getElementById('rv-anon').checked;
+  const texte    = document.getElementById('rv-text').value.trim();
+
+  if (!texte || !selectedStars) {
+    alert('Merci de renseigner une note et un avis.');
     return;
   }
+
+  // Construire le nom affiché
+  let nom;
+  if (anon) {
+    nom = 'Lecteur anonyme';
+  } else {
+    const parts = [initial, lastname].filter(Boolean);
+    nom = parts.length ? parts.join(' ') : 'Lecteur anonyme';
+  }
+  const lieu = pays || 'Monde';
+
   const now = new Date();
   const date = now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
   const btn = document.querySelector('.reader-form-submit');
@@ -1574,11 +1596,13 @@ async function submitReview() {
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal'
       },
-      body: JSON.stringify({ nom, lieu: lieu || 'Anonyme', texte, note: selectedStars, date })
+      body: JSON.stringify({ nom, lieu, texte, note: selectedStars, date })
     });
     if (res.ok) {
-      document.getElementById('rv-name').value = '';
+      document.getElementById('rv-initial').value = '';
+      document.getElementById('rv-lastname').value = '';
       document.getElementById('rv-location').value = '';
+      document.getElementById('rv-anon').checked = false;
       document.getElementById('rv-text').value = '';
       selectedStars = 0;
       document.querySelectorAll('.reader-star-btn').forEach(b => b.classList.remove('active'));
