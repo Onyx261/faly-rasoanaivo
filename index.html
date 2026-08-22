@@ -1390,7 +1390,7 @@ footer {
   </div>
 
   <div class="reader-form-wrap reveal">
-    <div class="reader-form-title">Vous avez lu le livre ? Partagez votre ressenti.</div>
+    <div class="reader-form-title">Votre avis apparaîtra dans la section <em>Retours</em> ci-dessus.</div>
     <div class="reader-form-grid">
       <div class="reader-form-group">
         <label>Initiale du prénom</label>
@@ -1427,7 +1427,6 @@ footer {
     <div class="reader-success" id="rv-success">Merci — votre avis a été publié.</div>
   </div>
 
-  <div class="reader-reviews-list" id="reviewsList"></div>
 </section>
 
 <section class="cta" id="commander">
@@ -1528,35 +1527,34 @@ document.querySelectorAll('.reader-star-btn').forEach(btn => {
 
 function renderReviews(reviews) {
   const list = document.getElementById('reviewsList');
-  if (!reviews.length) {
-    list.innerHTML = '<div class="reader-empty">Soyez le premier à laisser un avis.</div>';
-    return;
-  }
+  if (!list) return;
+  if (!reviews.length) { list.innerHTML = ''; return; }
   list.innerHTML = reviews.map(r => `
-    <div class="reader-review-card">
-      <div class="reader-review-stars">${'★'.repeat(r.note)}${('☆'.repeat(5-r.note))}</div>
-      <p class="reader-review-text">"${r.texte}"</p>
-      <div class="reader-review-meta">
-        <span>${r.nom}</span>
-        <span>${r.lieu || ''}${r.lieu ? ' · ' : ''}${r.date}</span>
-      </div>
+    <div class="review-card" style="animation:fadein 0.5s ease both">
+      <div class="review-stars">${'★'.repeat(r.note||5)}${'☆'.repeat(5-(r.note||5))}</div>
+      <p class="review-text">"${r.texte}"</p>
+      <div class="review-author">${r.nom}${r.lieu ? ' · ' + r.lieu : ''}${r.date ? ' · ' + r.date : ''}</div>
     </div>
   `).join('');
 }
 
 async function loadReviews() {
   try {
-    const res = await fetch(`${SUPA_URL}/rest/v1/avis?select=*&order=id.desc`, {
+    const res = await fetch(`${SUPA_URL}/rest/v1/avis?select=nom,lieu,texte,note,date`, {
       headers: {
         'apikey': SUPA_KEY,
-        'Authorization': 'Bearer ' + SUPA_KEY
+        'Authorization': 'Bearer ' + SUPA_KEY,
+        'Content-Type': 'application/json'
       }
     });
+    if (!res.ok) {
+      console.error('Supabase error:', res.status, await res.text());
+      return;
+    }
     const data = await res.json();
     renderReviews(Array.isArray(data) ? data : []);
   } catch(e) {
     console.error('Erreur chargement avis:', e);
-    renderReviews([]);
   }
 }
 
